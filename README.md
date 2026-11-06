@@ -2,7 +2,7 @@
 
 Requires Node.js 22+. This is a standalone utility, not a RideX learning lab.
 
-Copy `.env.example` to `.env`, enter your credentials, then run:
+First complete [Local AI setup](#local-ai-setup-ollama) below. Copy `.env.example` to `.env` only if you do not already have one, enter your game credentials, then run:
 
 ```sh
 npm install
@@ -34,6 +34,100 @@ The website has bot detection/reporting. This client does not disable security c
 
 Validation: run `npm test` for navigation, arithmetic, model response validation, request format, deadline and cancellation tests. `check-local.mjs` measures local inference on synthetic questions. No real game task has been started/submitted during this update; live Socket.IO navigation and challenge schemas remain unverified. Sources: website `app.js?v=15`; https://socket.io/docs/v4/client-options/; https://docs.ollama.com/api/chat; https://docs.ollama.com/capabilities/structured-outputs.
 
+
+## Local AI setup (Ollama)
+
+### 1. Install and start Ollama
+
+- **macOS:** download the installer from [ollama.com/download](https://ollama.com/download), install Ollama, and open the app. Finish the initial setup, then open a new terminal.
+- **Windows:** download and run the Windows installer from the same page. Ollama runs in the background; open a new PowerShell window after installation. See the [official Windows guide](https://docs.ollama.com/windows).
+- **Linux:** follow the [official Linux installation guide](https://docs.ollama.com/linux). The standard installation command is:
+
+  ```sh
+  curl -fsSL https://ollama.com/install.sh | sh
+  ```
+
+Verify that the CLI is available:
+
+```sh
+ollama --version
+ollama list
+```
+
+If the CLI cannot connect to the local service, open the Ollama app (macOS/Windows), or start the server in a separate terminal:
+
+```sh
+ollama serve
+```
+
+Keep that terminal open while running the client. If it reports that port `11434` is already in use, an Ollama instance may already be running; verify with `ollama list` rather than starting a second instance.
+
+### 2. Download the model
+
+```sh
+ollama pull llama3.2:3b
+ollama list
+ollama run llama3.2:3b "Complete the sentence: She ___ a doctor."
+```
+
+The [default model](https://ollama.com/library/llama3.2:3b) download is approximately 2 GB; allow additional disk space for Ollama and memory for inference. Downloading requires internet access. After downloading, this local model runs without a paid API key; the game still needs internet access. The client does not download models automatically.
+
+### 3. Configure the client
+
+In the `microwave-client` project directory, create `.env` only if it does not already exist:
+
+```sh
+# macOS / Linux
+cp -n .env.example .env
+```
+
+```powershell
+# Windows PowerShell
+if (!(Test-Path .env)) { Copy-Item .env.example .env }
+```
+
+Edit `.env`, fill in `GAME_USERNAME` and `GAME_PASSWORD`, and keep these local AI settings:
+
+```dotenv
+OLLAMA_URL=http://localhost:11434
+OLLAMA_MODEL=llama3.2:3b
+```
+
+Use the exact model tag shown by `ollama list`. This client accepts only loopback URLs (`localhost`, `127.0.0.1`, or `[::1]`). An embedding-only model such as `bge-m3` cannot answer questions. To change models later, download a local chat model with `ollama pull <model-tag>`, then update `OLLAMA_MODEL` and run the check below.
+
+### 4. Check local AI before running tasks
+
+From the project directory:
+
+```sh
+npm install
+node --env-file=.env check-local.mjs
+```
+
+This warms up the model and answers five synthetic English questions, printing responses, timing and an accuracy count. It does **not** log in to the game or submit tasks. Successful inference does not guarantee correct answers: the current default model scored 3/5 on the small sample in our earlier check. Treat this as a connectivity/smoke check, not a comprehensive evaluation.
+
+Once the check works:
+
+```sh
+npm start
+npm start -- --run coffee
+```
+
+The first command only reads game data; the second performs the coffee task if it is available, including automatic local AI answers and submission.
+
+### Troubleshooting
+
+| Symptom | What to check |
+|---|---|
+| `ollama: command not found` | Finish installation, open a new terminal, and verify the CLI is on your PATH. |
+| `fetch failed` / connection refused | Start Ollama and check `OLLAMA_URL`; `ollama list` should connect successfully. |
+| Ollama HTTP 404 / model not found | Run `ollama pull llama3.2:3b` and make sure `OLLAMA_MODEL` matches an installed tag. |
+| Port `11434` already in use | Check whether Ollama is already serving; do not start another instance on the same port. |
+| Timeout / too little time left | Close other inference jobs and test with `check-local.mjs`. The client warms up the model before tasks, but slow inference can still exceed the game's deadline. |
+| Valid response but wrong answer | The model can make mistakes. Inspect the logged question/choice and compare local chat models; changing the timeout will not fix accuracy. |
+| `TASK skipped: cooldown` | This is the game server's cooldown, not an Ollama failure. Rerun after the logged `availableAt` time. |
+
+References: [Ollama quickstart](https://docs.ollama.com/quickstart), [CLI reference](https://docs.ollama.com/cli), [model library entry](https://ollama.com/library/llama3.2:3b).
 
 ## Detailed logs
 
