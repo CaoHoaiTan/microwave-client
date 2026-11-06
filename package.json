@@ -1,0 +1,1 @@
+{"private":true,"type":"module","scripts":{"start":"node --env-file=.env client.mjs","test":"node --test"},"dependencies":{"socket.io-client":"^4.8.1"}}

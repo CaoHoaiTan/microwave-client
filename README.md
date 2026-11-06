@@ -1,0 +1,48 @@
+# Microwave Office API client
+
+Requires Node.js 22+. This is a standalone utility, not a RideX learning lab.
+
+Copy `.env.example` to `.env`, enter your credentials, then run:
+
+```sh
+npm install
+npm start
+npm start -- --run coffee
+npm start -- --run coffee plant trash quiz typing printer
+```
+
+Default mode logs in and reads map data only. `--run` moves the player and submits each selected task once. Close other game tabs before running so another client does not move the same player.
+
+The client uses the login cookie for HTTP and Socket.IO, waits for `init`, navigates around solid objects at less than the frontend's movement speed, and sends `move` events. Task actions use `/api/tasks/:id/start` and `/submit`. Server-side movement checks are unknown; a rejected request stops execution, without automatic retries.
+
+All stages now run without terminal input. English questions are sent one question at a time within a shared deadline to local Ollama, using JSON-schema output containing exact option texts. The client maps those texts to zero-based API indexes to avoid model numbering mistakes. Arithmetic is solved directly when recognized; unfamiliar math expressions use Ollama. Typing and printer stages use the challenge data directly.
+
+Ollama defaults (also listed in `.env.example`):
+
+```dotenv
+OLLAMA_URL=http://localhost:11434
+OLLAMA_MODEL=llama3.2:3b
+```
+
+These defaults work with an existing `.env`; no credential changes are needed. Only loopback Ollama URLs are accepted. Questions are sent to Ollama without game cookies or credentials. Model weights must already be installed; the client never downloads a model. Run `node check-local.mjs` to check Ollama against five synthetic questions without accessing the game (use `node --env-file=.env check-local.mjs` for custom config).
+
+The model is warmed up before login and before any timed task. The solver reserves two seconds for submitting, limits inference to 45 seconds, and validates answer count and option bounds. Invalid JSON, timeout, unsupported stages, or a disconnected socket stop the run; there is no manual prompt or random-answer fallback. Format validation cannot guarantee correct English answers. A run still performs each selected task only once; there is no infinite farming loop.
+
+Cooldown tasks are skipped, the daily cap stops the run, and Ctrl+C cancels. POST requests are never retried because repeating them may have side effects. A submitted task changes the account's rewards/progress. Cancelling after starting may leave an active challenge until the server expires it.
+
+The website has bot detection/reporting. This client does not disable security controls, and the server may reject automated submissions. The server determines scores and may apply timing constraints; automated typing is not guaranteed a particular reward.
+
+Validation: run `npm test` for navigation, arithmetic, model response validation, request format, deadline and cancellation tests. `check-local.mjs` measures local inference on synthetic questions. No real game task has been started/submitted during this update; live Socket.IO navigation and challenge schemas remain unverified. Sources: website `app.js?v=15`; https://socket.io/docs/v4/client-options/; https://docs.ollama.com/api/chat; https://docs.ollama.com/capabilities/structured-outputs.
+
+
+## Detailed logs
+
+Detailed logging is enabled by default. Every request/response has a timestamp, correlation number, HTTP status and elapsed time. Logs include game request bodies and responses, challenge questions/options, Ollama prompts and raw responses, validated option text and zero-based API answer, submit payloads, rewards/review returned by the server, Socket.IO movement events, and failures. The server may not return the correct answer; the client only reports what is returned.
+
+`WARMUP` is a synthetic question, not a game task. `TASK skipped: cooldown` includes the server's remaining milliseconds and an estimated `availableAt` timestamp (UTC). No task is started or answered when skipped; rerun after that time. The client does not know why the server assigned that cooldown.
+
+Credentials, cookies, token fields and known credential values are redacted. Other account/challenge content can still be present in logs; inspect before sharing. To save terminal output:
+
+```sh
+npm start -- --run coffee 2>&1 | tee coffee-run.log
+```
