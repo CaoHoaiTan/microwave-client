@@ -3,6 +3,7 @@ import { setTimeout as sleep } from 'node:timers/promises';
 import { findPath, arithmetic } from './navigation.mjs';
 import { createSolver } from './solver.mjs';
 import { trace, requestJson } from './logging.mjs';
+import { rewardSummary, formatRewardSummary } from './rewards.mjs';
 
 const args = process.argv.slice(2);
 const execute = args.includes('--run');
@@ -117,6 +118,14 @@ try {
         view=await api(`/tasks/${id}/submit`,answer);
       }
       trace('TASK completed',{task:id,result:view});
+      let updatedUser;
+      try { updatedUser=(await api('/me')).user; }
+      catch(error) {
+        trace('TASK balance refresh failed',{task:id,message:error.message,note:'Task result already received. No task retry.'});
+      }
+      const summary=rewardSummary(id,view,updatedUser);
+      trace('TASK reward summary',summary);
+      console.log(formatRewardSummary(summary));
     }
   }
 } catch(error) {

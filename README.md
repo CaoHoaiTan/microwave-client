@@ -46,3 +46,5 @@ Credentials, cookies, token fields and known credential values are redacted. Oth
 ```sh
 npm start -- --run coffee 2>&1 | tee coffee-run.log
 ```
+
+After each finished task, `TASK reward summary` reports the actual MCOIN and XP awarded by the final response, plus current balance, total XP and level refreshed from `/api/me`. A short Vietnamese summary is printed as well. Missing award fields are reported as unknown, not zero. Voided tasks do not claim rewards. If balance refresh fails, the award still prints and the completed task is never retried.
